@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
-import { EVENT_TYPES } from '../../utils/constants';
+import { UNPLANNED_EVENT_TYPES, PLANNED_EVENT_TYPES  } from '../../utils/constants';
 import { createVenueIcon } from '../../utils/mapIcons';
 
 const BENGALURU_VENUES = [
@@ -121,11 +121,17 @@ export default function EventForm({ onSubmit, status }) {
               value={formData.eventType}
               onChange={(e) => setFormData({ ...formData, eventType: e.target.value })}
             >
-              {EVENT_TYPES.filter(t => formData.isPlanned ? !['accident','vehicle_breakdown','tree_fall','waterlogging'].includes(t.value) : ['accident','vehicle_breakdown','tree_fall','waterlogging','others'].includes(t.value)).map((type) => (
-                <option key={type.value} value={type.value}>
-                  {type.label}
-                </option>
-              ))}
+              {formData.isPlanned
+                ? PLANNED_EVENT_TYPES.map((type) => (
+                    <option key={type.value} value={type.value}>
+                      {type.label}
+                    </option>
+                  ))
+                : UNPLANNED_EVENT_TYPES.map((type) => (
+                    <option key={type.value} value={type.value}>
+                      {type.label}
+                    </option>
+                  ))}
             </select>
           </label>
           <label className="block space-y-1.5">

@@ -1,7 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { CalendarClock, MapPin, RotateCcw, Users } from 'lucide-react';
-import { EVENT_TYPES } from '../../utils/constants';
+import { PLANNED_EVENT_TYPES, UNPLANNED_EVENT_TYPES } from '../../utils/constants';
 import { formatDateTime, formatNumber } from '../../utils/riskUtils';
 import RouteMap from '../RouteMap/RouteMap.jsx';
 import RiskCard from '../RiskCard/RiskCard.jsx';
@@ -15,7 +15,7 @@ import AlertSystem from '../AlertSystem/AlertSystem.jsx';
 export default function Dashboard({ event, prediction, resources, routing, historicalComparison, onReset }) {
   const navigate = useNavigate();
   const eventTypeLabel =
-    EVENT_TYPES.find((t) => t.value === event.eventType)?.label ?? event.eventType;
+    [...PLANNED_EVENT_TYPES, ...UNPLANNED_EVENT_TYPES].find((t) => t.value === event.eventType)?.label ?? event.eventType;
 
   function handleNewForecast() {
     onReset();

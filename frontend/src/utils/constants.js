@@ -12,13 +12,21 @@ export const USE_MOCK = import.meta.env.VITE_USE_MOCK !== 'false';
 export const DEFAULT_MAP_CENTER = [12.9716, 77.5946];
 export const DEFAULT_MAP_ZOOM = 13;
 
-export const EVENT_TYPES = [
+export const PLANNED_EVENT_TYPES = [
   { value: 'political_rally', label: 'Political Rally', baseWeight: 0.85 },
   { value: 'religious_festival', label: 'Religious Festival', baseWeight: 0.75 },
   { value: 'sports_event', label: 'Sports Event', baseWeight: 0.65 },
   { value: 'cultural_event', label: 'Cultural Event / Concert', baseWeight: 0.55 },
   { value: 'protest_strike', label: 'Protest / Strike', baseWeight: 0.9 },
   { value: 'vip_movement', label: 'VIP Movement', baseWeight: 0.7 },
+];
+
+export const UNPLANNED_EVENT_TYPES = [
+  { value: 'accident', label: 'Traffic Accident', baseWeight: 0.80 },
+  { value: 'vehicle_breakdown', label: 'Vehicle Breakdown', baseWeight: 0.50 },
+  { value: 'tree_fall', label: 'Tree Fall', baseWeight: 0.70 },
+  { value: 'waterlogging', label: 'Waterlogging / Flooding', baseWeight: 0.60 },
+  { value: 'others', label: 'Other Unplanned Incident', baseWeight: 0.50 },
 ];
 
 export const RISK_LEVELS = {

@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { CheckCircle2, ClipboardList, Loader2, Brain } from 'lucide-react';
 import { getValidationHistory, submitActualOutcome } from '../services/validationApi';
-import { EVENT_TYPES } from '../utils/constants';
+import { UNPLANNED_EVENT_TYPES, PLANNED_EVENT_TYPES } from '../utils/constants';
 import { formatDateTime, formatMinutes, getRiskBand } from '../utils/riskUtils';
 import LearningLoop from '../components/LearningLoop/LearningLoop.jsx';
 import SeverityBadge from '../components/SeverityBadge/SeverityBadge.jsx';
@@ -109,7 +109,7 @@ export default function Validation() {
 }
 
 function eventTypeLabel(value) {
-  return EVENT_TYPES.find((t) => t.value === value)?.label ?? value;
+  return [...PLANNED_EVENT_TYPES, ...UNPLANNED_EVENT_TYPES].find((t) => t.value === value)?.label ?? value;
 }
 
 function ComparisonBar({ predicted, actual, max = 100, unit = '' }) {
