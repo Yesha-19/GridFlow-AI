@@ -19,15 +19,14 @@ The application consists of a FastAPI backend and a React/Vite frontend. You wil
 The backend handles the ML model inference, database interactions, and business logic (resource allocation, routing).
 
 1. Open a terminal and navigate to the project root directory:
-   ```bash
-   cd "C:\Users\hasti\Downloads\gridlock-mvp (1)\gridlock-mvp"
-   ```
+  
 
 2. Activate the Python virtual environment:
    ```bash
    venv\Scripts\activate
    ```
-   *(Note: The environment is already set up with all dependencies installed. If you ever need to reinstall them, run `pip install -r backend\requirements.txt`)*
+   
+   *run `pip install -r backend\requirements.txt` to install the backend dependencies.*
 
 3. Set the encoding (required for the terminal UI):
    ```bash
@@ -47,7 +46,7 @@ The frontend is a Vite + React application that provides the tactical dashboard 
 
 1. Open a **new** terminal and navigate to the frontend directory:
    ```bash
-   cd "C:\Users\hasti\Downloads\gridlock-mvp (1)\gridlock-mvp\frontend"
+   cd frontend
    ```
 
 2. Start the Vite development server:
