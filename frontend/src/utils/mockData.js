@@ -50,7 +50,7 @@ const BENGALURU_HOTSPOTS = [
 export function generateMockForecast(event) {
   const rng = makeRng(event);
   const typeWeight =
-    [...PLANNED_EVENT_TYPES, ...UNPLANNED_EVENT_TYPES].find((t) => t.value === event.eventType)?.baseWeight ?? 0.6;
+    EVENT_TYPES.find((t) => t.value === event.eventType)?.baseWeight ?? 0.6;
 
   const attendanceFactor = Math.min(event.expectedAttendance / 50000, 1);
   const durationFactor = Math.min(event.durationHours / 8, 1);

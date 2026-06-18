@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
-import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
+import React, { useState, useRef, useMemo, useEffect } from 'react';
+import { MapContainer, TileLayer, Marker, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
-import { UNPLANNED_EVENT_TYPES, PLANNED_EVENT_TYPES  } from '../../utils/constants';
+import { UNPLANNED_EVENT_TYPES, PLANNED_EVENT_TYPES } from '../../utils/constants';
 import { createVenueIcon } from '../../utils/mapIcons';
 
 const BENGALURU_VENUES = [
@@ -15,19 +15,45 @@ const BENGALURU_VENUES = [
   { name: 'Whitefield', lat: 12.9698, lng: 77.7500 },
 ];
 
-function LocationPicker({ position, setPosition }) {
-  useMapEvents({
-    click(e) {
-      setPosition(e.latlng);
-    },
-  });
-  return position ? <Marker position={position} icon={createVenueIcon()} /> : null;
+// --- 1. The Upgraded Draggable Marker ---
+function DraggableMarker({ position, setPosition }) {
+  const markerRef = useRef(null);
+  const map = useMap();
+
+  const eventHandlers = useMemo(
+    () => ({
+      dragend() {
+        const marker = markerRef.current;
+        if (marker != null) {
+          const newPos = marker.getLatLng();
+          setPosition({ lat: newPos.lat, lng: newPos.lng });
+          map.flyTo(newPos, map.getZoom());
+        }
+      },
+    }),
+    [setPosition, map]
+  );
+
+  useEffect(() => {
+    map.flyTo(position, map.getZoom());
+  }, [position, map]);
+
+  return (
+    <Marker
+      draggable={true}
+      eventHandlers={eventHandlers}
+      position={position}
+      ref={markerRef}
+      icon={createVenueIcon()}
+    />
+  );
 }
 
 export default function EventForm({ onSubmit, status }) {
   const [formData, setFormData] = useState({
     eventName: '',
     eventType: 'political_rally',
+    customEventType: '', // New state for conditional rendering
     isPlanned: true,
     venueName: '',
     expectedAttendance: 1000,
@@ -53,8 +79,16 @@ export default function EventForm({ onSubmit, status }) {
 
   function handleSubmit(e) {
     e.preventDefault();
+    
+    // Intercept and swap 'others' for the custom text
+    let finalEventType = formData.eventType;
+    if (finalEventType === 'others') {
+      finalEventType = formData.customEventType.trim() || 'Unspecified Incident';
+    }
+
     onSubmit({
       ...formData,
+      eventType: finalEventType, 
       latitude: position.lat,
       longitude: position.lng,
       expectedAttendance: Number(formData.expectedAttendance),
@@ -86,7 +120,7 @@ export default function EventForm({ onSubmit, status }) {
             className={`flex-1 rounded-sm py-1.5 text-xs font-semibold uppercase tracking-wide transition-colors ${
               formData.isPlanned ? 'bg-signal text-white' : 'text-console-muted hover:text-console-text'
             }`}
-            onClick={() => setFormData(prev => ({ ...prev, isPlanned: true }))}
+            onClick={() => setFormData(prev => ({ ...prev, isPlanned: true, eventType: PLANNED_EVENT_TYPES[0].value, customEventType: '' }))}
           >
             Planned Event
           </button>
@@ -95,7 +129,7 @@ export default function EventForm({ onSubmit, status }) {
             className={`flex-1 rounded-sm py-1.5 text-xs font-semibold uppercase tracking-wide transition-colors ${
               !formData.isPlanned ? 'bg-risk-high text-white' : 'text-console-muted hover:text-console-text'
             }`}
-            onClick={() => setFormData(prev => ({ ...prev, isPlanned: false, eventType: 'accident' }))}
+            onClick={() => setFormData(prev => ({ ...prev, isPlanned: false, eventType: UNPLANNED_EVENT_TYPES[0].value, customEventType: '' }))}
           >
             Unplanned Incident
           </button>
@@ -123,15 +157,12 @@ export default function EventForm({ onSubmit, status }) {
             >
               {formData.isPlanned
                 ? PLANNED_EVENT_TYPES.map((type) => (
-                    <option key={type.value} value={type.value}>
-                      {type.label}
-                    </option>
+                    <option key={type.value} value={type.value}>{type.label}</option>
                   ))
                 : UNPLANNED_EVENT_TYPES.map((type) => (
-                    <option key={type.value} value={type.value}>
-                      {type.label}
-                    </option>
+                    <option key={type.value} value={type.value}>{type.label}</option>
                   ))}
+              <option value="others">Other (Specify)</option>
             </select>
           </label>
           <label className="block space-y-1.5">
@@ -140,8 +171,8 @@ export default function EventForm({ onSubmit, status }) {
             </span>
             <input
               type="number"
-              required
-              min="100"
+              required={formData.isPlanned}
+              min={formData.isPlanned ? "100" : "0"}
               step="100"
               className="input"
               value={formData.expectedAttendance}
@@ -150,12 +181,27 @@ export default function EventForm({ onSubmit, status }) {
           </label>
         </div>
 
+        {/* 2. Conditional Rendering for "Other" Event Type */}
+        {formData.eventType === 'others' && (
+          <label className="block space-y-1.5 animate-fade-in p-2 border border-blue-500/50 rounded bg-blue-500/10">
+            <span className="text-xs font-medium text-blue-400">Specify Custom Event Type</span>
+            <input
+              type="text"
+              required
+              className="input border-blue-500/50 focus:border-blue-400"
+              value={formData.customEventType}
+              onChange={(e) => setFormData({ ...formData, customEventType: e.target.value })}
+              placeholder="e.g. Pipeline Burst, VIP Convoy"
+            />
+          </label>
+        )}
+
         <div className="grid grid-cols-2 gap-4">
           <label className="block space-y-1.5">
             <span className="text-xs font-medium text-console-muted">Start Time</span>
             <input
               type="datetime-local"
-              required
+              required={formData.isPlanned}
               className="input"
               value={formData.startTime}
               onChange={(e) => setFormData({ ...formData, startTime: e.target.value })}
@@ -209,10 +255,10 @@ export default function EventForm({ onSubmit, status }) {
               attributionControl={false}
             >
               <TileLayer url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" />
-              <LocationPicker position={position} setPosition={setPosition} />
+              <DraggableMarker position={position} setPosition={setPosition} />
             </MapContainer>
           </div>
-          <p className="text-[10px] text-console-muted text-right">Click map to move pin</p>
+          <p className="text-[10px] text-console-muted text-right">Drag pin to set exact location</p>
         </label>
       </div>
 

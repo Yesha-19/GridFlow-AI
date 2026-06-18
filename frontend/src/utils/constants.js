@@ -19,7 +19,7 @@ export const PLANNED_EVENT_TYPES = [
   { value: 'cultural_event', label: 'Cultural Event / Concert', baseWeight: 0.55 },
   { value: 'protest_strike', label: 'Protest / Strike', baseWeight: 0.9 },
   { value: 'vip_movement', label: 'VIP Movement', baseWeight: 0.7 },
-  { value: 'others', label: 'Other Unplanned Incident', baseWeight: 0.50 },
+ // { value: 'others', label: 'Other Unplanned Incident', baseWeight: 0.50 },
 ];
 
 export const UNPLANNED_EVENT_TYPES = [
@@ -27,7 +27,7 @@ export const UNPLANNED_EVENT_TYPES = [
   { value: 'vehicle_breakdown', label: 'Vehicle Breakdown', baseWeight: 0.50 },
   { value: 'tree_fall', label: 'Tree Fall', baseWeight: 0.70 },
   { value: 'waterlogging', label: 'Waterlogging / Flooding', baseWeight: 0.60 },
-  { value: 'others', label: 'Other Unplanned Incident', baseWeight: 0.50 },
+  //{ value: 'others', label: 'Other Unplanned Incident', baseWeight: 0.50 },
 ];
 
 export const RISK_LEVELS = {
