@@ -39,7 +39,7 @@ are documented as JSDoc comments directly above each function:
 ```
 src/
   components/      # EventForm, RouteMap, RiskCard, ResourcePanel, AnalyticsPanel, Dashboard
-  pages/            # Home (console), Dashboard, Validation
+  pages/            # Home (console), Dashboard, Validation, Analytics
   context/          # EventContext — shares the active forecast across pages
   hooks/            # useCountdown — T-minus timer to event start
   services/         # axios calls with documented contracts + mock fallback

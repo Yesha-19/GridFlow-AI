@@ -95,10 +95,47 @@
 
 .venue-pulse-icon {
   position: relative;
+  overflow: visible;
 }
-.venue-pulse-icon .pulse-ring {
-  position: absolute;
-  inset: 0;
-  border-radius: 999px;
-  background: currentColor;
+
+/* Keyframe for the inline-style pulse animation used by mapIcons.js */
+@keyframes venue-pulse-ring {
+  0%   { transform: scale(0.6); opacity: 0.9; }
+  80%  { transform: scale(2.4); opacity: 0;   }
+  100% { transform: scale(2.4); opacity: 0;   }
+}
+
+/* Fade-in utility (used by "Other event type" reveal) */
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.animate-fade-in {
+  animation: fade-in 0.2s ease-out forwards;
+}
+
+/* ── Map label readability overrides ───────────────────────────────────────── */
+
+/*
+  CartoDB Voyager labels layer renders text in its own colour scheme.
+  Boost legibility within the EventForm's compact 220px map by ensuring
+  Leaflet doesn't clip or hide text outside tile bounds.
+*/
+.leaflet-tile-pane {
+  /* Stack: dark-matter (base) → dark-matter labels → voyager labels */
+  image-rendering: auto;
+}
+
+/* Prevent the map background flashing white on tile load */
+.leaflet-container {
+  background: #111827;
+}
+
+/* Make the location-search dropdown sit above the Leaflet map (z-index 400) */
+.leaflet-pane,
+.leaflet-tile,
+.leaflet-marker-pane,
+.leaflet-tooltip-pane,
+.leaflet-popup-pane {
+  /* Leaflet default z-indices are 200–700; search dropdown uses z-[9999] */
 }

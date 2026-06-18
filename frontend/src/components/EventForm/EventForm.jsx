@@ -1,59 +1,95 @@
-import React, { useState, useRef, useMemo, useEffect } from 'react';
-import { MapContainer, TileLayer, Marker, useMap } from 'react-leaflet';
+import React, { useState, useRef, useMemo, useEffect, useCallback } from 'react';
+import { MapContainer, TileLayer, Marker, useMap, useMapEvents } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import { UNPLANNED_EVENT_TYPES, PLANNED_EVENT_TYPES } from '../../utils/constants';
-import { createVenueIcon } from '../../utils/mapIcons';
+import { createVenueIcon, createDraggingIcon } from '../../utils/mapIcons';
+import LocationSearch from '../LocationSearch/LocationSearch';
+import LocationInfoCard from '../LocationSearch/LocationInFocard';
 
+// ─── Predefined Bengaluru venues ──────────────────────────────────────────────
 const BENGALURU_VENUES = [
   { name: 'Chinnaswamy Stadium Area', lat: 12.9788, lng: 77.5996 },
-  { name: 'Palace Grounds', lat: 13.0070, lng: 77.5725 },
-  { name: 'Kanteerava Stadium', lat: 12.9756, lng: 77.5928 },
-  { name: 'Freedom Park', lat: 12.9770, lng: 77.5734 },
-  { name: 'Lalbagh', lat: 12.9507, lng: 77.5848 },
-  { name: 'MG Road', lat: 12.9758, lng: 77.6069 },
-  { name: 'Koramangala', lat: 12.9352, lng: 77.6245 },
-  { name: 'Whitefield', lat: 12.9698, lng: 77.7500 },
+  { name: 'Palace Grounds',           lat: 13.0070, lng: 77.5725 },
+  { name: 'Kanteerava Stadium',        lat: 12.9756, lng: 77.5928 },
+  { name: 'Freedom Park',             lat: 12.9770, lng: 77.5734 },
+  { name: 'Lalbagh',                  lat: 12.9507, lng: 77.5848 },
+  { name: 'MG Road',                  lat: 12.9758, lng: 77.6069 },
+  { name: 'Koramangala',              lat: 12.9352, lng: 77.6245 },
+  { name: 'Whitefield',               lat: 12.9698, lng: 77.7500 },
 ];
 
-// --- 1. The Upgraded Draggable Marker ---
-function DraggableMarker({ position, setPosition }) {
-  const markerRef = useRef(null);
+const DEFAULT_CENTER = { lat: 12.9716, lng: 77.5946 };
+
+// ─── MapController: keeps the map view in sync with external position changes ─
+function MapController({ position }) {
   const map = useMap();
+  const prevPos = useRef(null);
+
+  useEffect(() => {
+    if (
+      !prevPos.current ||
+      prevPos.current.lat !== position.lat ||
+      prevPos.current.lng !== position.lng
+    ) {
+      map.flyTo([position.lat, position.lng], map.getZoom(), {
+        animate: true,
+        duration: 0.8,
+        easeLinearity: 0.35,
+      });
+      prevPos.current = position;
+    }
+  }, [position, map]);
+
+  return null;
+}
+
+// ─── DraggableMarker ──────────────────────────────────────────────────────────
+function DraggableMarker({ position, onDragEnd }) {
+  const markerRef = useRef(null);
+  const [isDragging, setIsDragging] = useState(false);
 
   const eventHandlers = useMemo(
     () => ({
+      dragstart() { setIsDragging(true); },
       dragend() {
+        setIsDragging(false);
         const marker = markerRef.current;
-        if (marker != null) {
-          const newPos = marker.getLatLng();
-          setPosition({ lat: newPos.lat, lng: newPos.lng });
-          map.flyTo(newPos, map.getZoom());
+        if (marker) {
+          const { lat, lng } = marker.getLatLng();
+          onDragEnd({ lat, lng });
         }
       },
     }),
-    [setPosition, map]
+    [onDragEnd]
   );
-
-  useEffect(() => {
-    map.flyTo(position, map.getZoom());
-  }, [position, map]);
 
   return (
     <Marker
-      draggable={true}
+      draggable
       eventHandlers={eventHandlers}
-      position={position}
+      position={[position.lat, position.lng]}
       ref={markerRef}
-      icon={createVenueIcon()}
+      icon={isDragging ? createDraggingIcon() : createVenueIcon()}
     />
   );
 }
 
+// ─── MapClickHandler: clicking the map moves the marker ──────────────────────
+function MapClickHandler({ onMapClick }) {
+  useMapEvents({
+    click(e) {
+      onMapClick({ lat: e.latlng.lat, lng: e.latlng.lng });
+    },
+  });
+  return null;
+}
+
+// ─── Main EventForm ───────────────────────────────────────────────────────────
 export default function EventForm({ onSubmit, status }) {
   const [formData, setFormData] = useState({
     eventName: '',
     eventType: 'political_rally',
-    customEventType: '', // New state for conditional rendering
+    customEventType: '',
     isPlanned: true,
     venueName: '',
     expectedAttendance: 1000,
@@ -61,36 +97,85 @@ export default function EventForm({ onSubmit, status }) {
     durationHours: 4,
   });
 
-  const [position, setPosition] = useState({
-    lat: 12.9716,
-    lng: 77.5946,
+  // Unified location state: drives dropdown, marker, coords, and info card
+  const [location, setLocation] = useState({
+    name: '',
+    lat: DEFAULT_CENTER.lat,
+    lng: DEFAULT_CENTER.lng,
+    address: '',
+    source: null, // 'venue' | 'search' | 'drag' | 'click'
   });
 
+  // ── Setters ────────────────────────────────────────────────────────────────
+
+  // Called when dropdown changes
   function handleVenueSelect(e) {
     const venueName = e.target.value;
-    if (!venueName) return;
-    
+
+    if (venueName === 'other') {
+      setFormData(prev => ({ ...prev, venueName: 'other' }));
+      return;
+    }
+
+    if (!venueName) {
+      setFormData(prev => ({ ...prev, venueName: '' }));
+      return;
+    }
+
     const venue = BENGALURU_VENUES.find(v => v.name === venueName);
     if (venue) {
       setFormData(prev => ({ ...prev, venueName }));
-      setPosition({ lat: venue.lat, lng: venue.lng });
+      setLocation({ name: venue.name, lat: venue.lat, lng: venue.lng, address: `${venue.name}, Bengaluru, Karnataka, India`, source: 'venue' });
     }
   }
 
+  // Called when LocationSearch selects a geocoded result
+  function handleSearchSelect({ name, lat, lng, address }) {
+    setFormData(prev => ({ ...prev, venueName: 'other' }));
+    setLocation({ name, lat, lng, address, source: 'search' });
+  }
+
+  // Called when marker is dragged
+  const handleDragEnd = useCallback(({ lat, lng }) => {
+    setFormData(prev => ({ ...prev, venueName: 'other' }));
+    setLocation(prev => ({ ...prev, lat, lng, source: 'drag', name: prev.name || 'Custom Pin' }));
+
+    // Reverse-geocode to get address for dragged position
+    fetch(
+      `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`,
+      { headers: { 'Accept-Language': 'en' } }
+    )
+      .then(r => r.json())
+      .then(data => {
+        const name = data.name || data.display_name?.split(',')[0] || 'Custom Pin';
+        setLocation(prev => ({
+          ...prev,
+          name,
+          address: data.display_name || '',
+        }));
+      })
+      .catch(() => {});
+  }, []);
+
+  // Called when user clicks the map background
+  const handleMapClick = useCallback(({ lat, lng }) => {
+    setFormData(prev => ({ ...prev, venueName: 'other' }));
+    setLocation(prev => ({ ...prev, lat, lng, source: 'click', name: 'Custom Pin' }));
+  }, []);
+
+  // ── Submit ─────────────────────────────────────────────────────────────────
   function handleSubmit(e) {
     e.preventDefault();
-    
-    // Intercept and swap 'others' for the custom text
     let finalEventType = formData.eventType;
     if (finalEventType === 'others') {
       finalEventType = formData.customEventType.trim() || 'Unspecified Incident';
     }
-
     onSubmit({
       ...formData,
-      eventType: finalEventType, 
-      latitude: position.lat,
-      longitude: position.lng,
+      eventType: finalEventType,
+      venueName: location.name || formData.venueName,
+      latitude: location.lat,
+      longitude: location.lng,
       expectedAttendance: Number(formData.expectedAttendance),
       durationHours: Number(formData.durationHours),
       startTime: formData.startTime
@@ -100,9 +185,11 @@ export default function EventForm({ onSubmit, status }) {
   }
 
   const isSubmitting = status === 'loading';
+  const isOther = formData.venueName === 'other';
 
   return (
     <form onSubmit={handleSubmit} className="flex h-full flex-col p-5">
+      {/* Header */}
       <div className="mb-4 flex items-center justify-between">
         <h2 className="font-display text-sm font-semibold uppercase tracking-wider text-console-text">
           New Event Forecast
@@ -135,6 +222,7 @@ export default function EventForm({ onSubmit, status }) {
           </button>
         </div>
 
+        {/* Event Name */}
         <label className="block space-y-1.5">
           <span className="text-xs font-medium text-console-muted">Event Name</span>
           <input
@@ -143,10 +231,11 @@ export default function EventForm({ onSubmit, status }) {
             className="input"
             value={formData.eventName}
             onChange={(e) => setFormData({ ...formData, eventName: e.target.value })}
-            placeholder={formData.isPlanned ? "e.g. Election Rally" : "e.g. Multi-vehicle collision"}
+            placeholder={formData.isPlanned ? 'e.g. Election Rally' : 'e.g. Multi-vehicle collision'}
           />
         </label>
 
+        {/* Event Type + Attendance */}
         <div className="grid grid-cols-2 gap-4">
           <label className="block space-y-1.5">
             <span className="text-xs font-medium text-console-muted">Event Type</span>
@@ -156,11 +245,11 @@ export default function EventForm({ onSubmit, status }) {
               onChange={(e) => setFormData({ ...formData, eventType: e.target.value })}
             >
               {formData.isPlanned
-                ? PLANNED_EVENT_TYPES.map((type) => (
-                    <option key={type.value} value={type.value}>{type.label}</option>
+                ? PLANNED_EVENT_TYPES.map((t) => (
+                    <option key={t.value} value={t.value}>{t.label}</option>
                   ))
-                : UNPLANNED_EVENT_TYPES.map((type) => (
-                    <option key={type.value} value={type.value}>{type.label}</option>
+                : UNPLANNED_EVENT_TYPES.map((t) => (
+                    <option key={t.value} value={t.value}>{t.label}</option>
                   ))}
               <option value="others">Other (Specify)</option>
             </select>
@@ -172,7 +261,7 @@ export default function EventForm({ onSubmit, status }) {
             <input
               type="number"
               required={formData.isPlanned}
-              min={formData.isPlanned ? "100" : "0"}
+              min={formData.isPlanned ? '100' : '0'}
               step="100"
               className="input"
               value={formData.expectedAttendance}
@@ -181,9 +270,9 @@ export default function EventForm({ onSubmit, status }) {
           </label>
         </div>
 
-        {/* 2. Conditional Rendering for "Other" Event Type */}
+        {/* Custom event type */}
         {formData.eventType === 'others' && (
-          <label className="block space-y-1.5 animate-fade-in p-2 border border-blue-500/50 rounded bg-blue-500/10">
+          <label className="block animate-fade-in space-y-1.5 rounded border border-blue-500/50 bg-blue-500/10 p-2">
             <span className="text-xs font-medium text-blue-400">Specify Custom Event Type</span>
             <input
               type="text"
@@ -196,6 +285,7 @@ export default function EventForm({ onSubmit, status }) {
           </label>
         )}
 
+        {/* Time + Duration */}
         <div className="grid grid-cols-2 gap-4">
           <label className="block space-y-1.5">
             <span className="text-xs font-medium text-console-muted">Start Time</span>
@@ -221,48 +311,92 @@ export default function EventForm({ onSubmit, status }) {
           </label>
         </div>
 
-        <label className="block space-y-1.5">
-          <span className="text-xs font-medium text-console-muted">Quick Location (Bengaluru)</span>
-          <select className="input" onChange={handleVenueSelect} value={formData.venueName}>
-            <option value="">-- Custom location --</option>
-            {BENGALURU_VENUES.map(v => (
-              <option key={v.name} value={v.name}>{v.name}</option>
-            ))}
-          </select>
-        </label>
-
-        <label className="block space-y-1.5">
-          <span className="flex items-center justify-between text-xs font-medium text-console-muted">
-            <span>Location Pin</span>
-            <span className="font-mono text-[10px]">
-              {position.lat.toFixed(4)}, {position.lng.toFixed(4)}
+        {/* ── Location Selection Section ──────────────────────────────────── */}
+        <div className="rounded-md border border-console-border bg-console-raised/30 p-3 space-y-3">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold uppercase tracking-widest text-console-muted">
+              Location
             </span>
-          </span>
-          <input
-            type="text"
-            required
-            className="input mb-2"
-            value={formData.venueName}
-            onChange={(e) => setFormData({ ...formData, venueName: e.target.value })}
-            placeholder="Custom venue name"
-          />
-          <div className="h-[200px] w-full overflow-hidden rounded-md border border-console-border">
-            <MapContainer
-              center={[12.9716, 77.5946]}
-              zoom={11}
-              style={{ height: '100%', width: '100%', background: '#070B14' }}
-              zoomControl={false}
-              attributionControl={false}
-            >
-              <TileLayer url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" />
-              <DraggableMarker position={position} setPosition={setPosition} />
-            </MapContainer>
+            {location.lat && location.lng && (
+              <span className="font-mono text-[10px] text-console-muted/70">
+                {location.lat.toFixed(4)}, {location.lng.toFixed(4)}
+              </span>
+            )}
           </div>
-          <p className="text-[10px] text-console-muted text-right">Drag pin to set exact location</p>
-        </label>
+
+         
+
+          {/* 2. Quick-select dropdown */}
+          <div className="space-y-1">
+            <span className="text-[10px] text-console-muted">Or pick a known venue</span>
+            <select
+              className="input text-xs"
+              onChange={handleVenueSelect}
+              value={formData.venueName}
+            >
+              <option value="">— Select venue —</option>
+              {BENGALURU_VENUES.map(v => (
+                <option key={v.name} value={v.name}>{v.name}</option>
+              ))}
+              <option value="other">Other Location…</option>
+            </select>
+          </div>
+
+          {/* 3. "Other Location" expanded search */}
+          {isOther && (
+            <div className="rounded border border-signal/30 bg-signal/5 p-2 space-y-1.5">
+              <p className="text-[10px] font-medium text-signal">Search any address or place</p>
+              <LocationSearch onSelect={handleSearchSelect} selectedName={location.name} />
+              {location.source === 'search' && (
+                <p className="text-[10px] text-console-muted">
+                  ✓ {location.name}
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* 4. Map */}
+          <div className="space-y-1">
+            <div className="overflow-hidden rounded-md border border-console-border shadow-inner" style={{ height: 220 }}>
+              <MapContainer
+  center={[DEFAULT_CENTER.lat, DEFAULT_CENTER.lng]}
+  zoom={12}
+  style={{ height: '100%', width: '100%' }}
+  zoomControl={false}
+  attributionControl={false}
+>
+  {/* The correct, single CartoDB layer that includes dark roads AND high-contrast text */}
+  <TileLayer
+    url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+    attribution="&copy; <a href='https://www.openstreetmap.org/copyright'>OpenStreetMap</a> contributors &copy; <a href='https://carto.com/attributions'>CARTO</a>"
+    subdomains="abcd"
+    maxZoom={19}
+  />
+  <MapController position={{ lat: location.lat, lng: location.lng }} />
+  <MapClickHandler onMapClick={handleMapClick} />
+  <DraggableMarker
+    position={{ lat: location.lat, lng: location.lng }}
+    onDragEnd={handleDragEnd}
+  />
+</MapContainer>
+            </div>
+            <p className="text-[10px] text-console-muted text-right">
+              Drag marker or click map to set exact location
+            </p>
+          </div>
+
+          {/* 5. Location info card */}
+          <LocationInfoCard
+            name={location.name}
+            lat={location.lat}
+            lng={location.lng}
+            address={location.address}
+          />
+        </div>
       </div>
 
-      <div className="mt-6 pt-4 border-t border-console-border">
+      {/* Submit */}
+      <div className="mt-6 border-t border-console-border pt-4">
         <button
           type="submit"
           disabled={isSubmitting}
