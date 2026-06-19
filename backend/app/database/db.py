@@ -9,6 +9,7 @@ import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import AsyncGenerator
+from dotenv import load_dotenv
 
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
@@ -18,9 +19,12 @@ from sqlalchemy.ext.asyncio import (
 )
 from sqlalchemy.orm import DeclarativeBase
 
+load_dotenv()
+
 # ---------------------------------------------------------------------------
 # Database URL — SQLite for demo, PostgreSQL for production
 # ---------------------------------------------------------------------------
+
 
 _DB_DIR = Path(__file__).resolve().parent.parent.parent
 _SQLITE_PATH = _DB_DIR / "gridlock_demo.db"
@@ -90,7 +94,7 @@ async def create_tables() -> None:
 
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-    print("[db] Database tables created/verified ✓")
+    print("[db] Database tables created/verified OK")
 
 
 # ---------------------------------------------------------------------------

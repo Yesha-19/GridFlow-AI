@@ -9,3 +9,5 @@ xgboost>=2.0.0
 networkx>=3.2
 pydantic>=2.5.0
 python-dotenv>=1.0.0
+asyncpg
+python-dotenv

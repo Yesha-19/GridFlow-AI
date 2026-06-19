@@ -10,7 +10,9 @@ from pathlib import Path
 from sqlalchemy import select, func
 
 from app.database.db import get_session
-from app.database.models import Event, Prediction, Validation
+from app.database.models import Event, Prediction, Validation, ResourcePlan
+from app.services.resource_service import compute_resource_plan
+import json
 
 _PROCESSED_DATA_DIR = Path(__file__).resolve().parent.parent.parent.parent / "ml" / "data" / "processed"
 
@@ -100,6 +102,30 @@ async def seed_historical_data():
             session.add(prediction)
             await session.flush()
 
+            # Resource Plan
+            # Generate mathematically based on the ML prediction so the DB is populated
+            resource_data = compute_resource_plan(
+                congestion_score=predicted_score,
+                crowd_size=0, # It's an unplanned event
+                event_type=event_cause,
+                latitude=float(row["latitude"]),
+                longitude=float(row["longitude"]),
+                duration_hours=float(row["duration_hours"]),
+            )
+
+            resource_plan = ResourcePlan(
+                event_id=event.id,
+                required_officers=resource_data["policePersonnel"],
+                required_barricades=resource_data["barricades"],
+                traffic_wardens=resource_data["trafficWardens"],
+                cctv_units=resource_data["cctvUnits"],
+                ambulance_standby=resource_data["ambulanceStandby"],
+                deployment_priority=risk_level,
+                deployment_zones_json=json.dumps(resource_data["deploymentZones"]),
+            )
+            session.add(resource_plan)
+            await session.flush()
+
             # Validation
             # Since the raw CSV doesn't track *actual* delays vs *predicted* delays,
             # we simulate a realistic minor deviation to demonstrate the ML model's accuracy.
@@ -121,4 +147,4 @@ async def seed_historical_data():
             session.add(validation)
 
         await session.commit()
-        print(f"[seed] Seeded {len(sampled_rows)} real events from the dataset ✓")
+        print(f"[seed] Seeded {len(sampled_rows)} real events from the dataset OK")

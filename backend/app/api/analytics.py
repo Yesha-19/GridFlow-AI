@@ -104,10 +104,10 @@ async def get_city_analytics(db: AsyncSession = Depends(get_db)):
     ]
 
     # 5. Monthly Trend & Accuracy Trend
-    # For SQLite, we extract the month string from the ISO start_time
+    # For PostgreSQL, we extract the month string from the ISO start_time using to_char
     trend_result = await db.execute(
         select(
-            func.strftime("%Y-%m", Event.start_time).label("month_str"),
+            func.to_char(Event.start_time, 'YYYY-MM').label("month_str"),
             func.count(Event.id).label("evt_count"),
             func.avg(Prediction.congestion_risk_score).label("avg_score"),
             func.avg(Validation.accuracy_percentage).label("avg_acc")

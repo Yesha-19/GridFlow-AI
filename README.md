@@ -18,22 +18,27 @@ The application consists of a FastAPI backend and a React/Vite frontend. You wil
 
 The backend handles the ML model inference, database interactions, and business logic (resource allocation, routing).
 
-1. Open a terminal and navigate to the project root directory:
-  
+1. Open a terminal and navigate to the project root directory.
 
-2. Activate the Python virtual environment:
+2. **Crucial Step — Database Setup:** Create a `.env` file inside the `backend/` directory with your Supabase PostgreSQL connection string:
+   ```bash
+   DATABASE_URL="postgresql+asyncpg://postgres:[YOUR-PASSWORD]@[YOUR-SUPABASE-REF].supabase.co:5432/postgres"
+   ```
+   *(Note: You do NOT need to run any SQL scripts in Supabase. Just provide a completely empty database. When the FastAPI server starts, it will automatically build all the tables and seed them with the historical dataset!)*
+
+3. Activate the Python virtual environment:
    ```bash
    venv\Scripts\activate
    ```
    
    *run `pip install -r backend\requirements.txt` to install the backend dependencies.*
 
-3. Set the encoding (required for the terminal UI):
+4. Set the encoding (required for the terminal UI):
    ```bash
    set PYTHONIOENCODING=utf-8
    ```
 
-4. Navigate to the backend directory and start the FastAPI server:
+5. Navigate to the backend directory and start the FastAPI server:
    ```bash
    cd backend
    uvicorn app.main:app --host 0.0.0.0 --port 8000
@@ -49,12 +54,18 @@ The frontend is a Vite + React application that provides the tactical dashboard 
    cd frontend
    ```
 
-2. Start the Vite development server:
+2. **Crucial Step — Auth Setup:** Create a `.env.local` file inside the `frontend/` directory with your Supabase API keys (found in your Supabase Dashboard under Project Settings > API):
+   ```bash
+   VITE_SUPABASE_URL="https://[YOUR-SUPABASE-REF].supabase.co"
+   VITE_SUPABASE_ANON_KEY="[YOUR-ANON-KEY]"
+   ```
+
+3. Start the Vite development server:
    ```bash
    npm run dev
    ```
 
-3. Open your web browser and go to the link provided by Vite (usually `http://localhost:5173`).
+4. Open your web browser and go to the link provided by Vite (usually `http://localhost:5173`).
 
 ---
 
@@ -82,6 +93,6 @@ The ML model (`xgboost`) is already trained and saved in `ml/models/`. However, 
 ## Project Structure
 
 * **`ml/`**: Machine learning pipelines, feature engineering, and trained model files.
-* **`backend/`**: FastAPI server, SQLite database logic, and routing/resource microservices.
+* **`backend/`**: FastAPI server, Supabase PostgreSQL database logic, and routing/resource microservices.
 * **`frontend/`**: React application featuring the tactical map, event timeline, severity badge, and analytics dashboard.
 * **`datasets/`**: Anonymized raw historical event data used for training.
