@@ -6,7 +6,7 @@ export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
 // While the backend team builds the FastAPI service in parallel, the UI runs
 // entirely on realistic generated data. Set VITE_USE_MOCK=false in .env once
 // /api/predict, /api/routing, and /api/validation are live.
-export const USE_MOCK = import.meta.env.VITE_USE_MOCK !== 'false';
+export const USE_MOCK = false;
 
 // Default map view centers on Bengaluru (HQ city for the hackathon).
 export const DEFAULT_MAP_CENTER = [12.9716, 77.5946];
