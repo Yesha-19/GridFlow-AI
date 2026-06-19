@@ -1,6 +1,6 @@
-# Gridlock 2.0 MVP
+# Gridflow
 
-Gridlock 2.0 is an event-driven congestion prediction system built for the Bengaluru Traffic Police. It uses historical traffic data and machine learning to forecast the impact of planned events (rallies, sports) and unplanned incidents (accidents) to recommend optimal manpower, barricading, and diversion plans.
+Gridflow is an event-driven congestion prediction system built for the Bengaluru Traffic Police. It uses historical traffic data and machine learning to forecast the impact of planned events (rallies, sports) and unplanned incidents (accidents) to recommend optimal manpower, barricading, and diversion plans.
 
 ## Prerequisites
 
