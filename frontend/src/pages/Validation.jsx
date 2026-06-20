@@ -195,6 +195,7 @@ function PendingRow({ row, onValidated, onDeleted }) {
   const [actualRiskScore, setActualRiskScore] = useState('');
   const [actualDelayMinutes, setActualDelayMinutes] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState(null);
 
   const canSubmit = actualRiskScore !== '' && actualDelayMinutes !== '' && !submitting;
 
@@ -207,8 +208,13 @@ function PendingRow({ row, onValidated, onDeleted }) {
     e.preventDefault();
     if (!canSubmit) return;
     setSubmitting(true);
-    const risk = Number(actualRiskScore);
-    const delay = Number(actualDelayMinutes);
+    setSubmitError(null);
+    // Round + clamp defensively: the number inputs below constrain this in
+    // most browsers, but the API previously hard-rejected (422) anything
+    // that wasn't a clean integer in range, so we don't rely on the browser
+    // alone to guarantee that.
+    const risk = Math.min(100, Math.max(0, Math.round(Number(actualRiskScore))));
+    const delay = Math.max(0, Math.round(Number(actualDelayMinutes)));
     try {
       const updated = await submitActualOutcome(row.id, {
         actualRiskScore: risk,
@@ -219,6 +225,12 @@ function PendingRow({ row, onValidated, onDeleted }) {
         ...updated,
         accuracyPercent: computeAccuracy(row.predictedRiskScore, risk, row.predictedDelayMinutes, delay),
       });
+    } catch (err) {
+      setSubmitError(
+        err.response?.data?.detail
+          ? String(err.response.data.detail)
+          : 'Could not save this outcome — please try again.'
+      );
     } finally {
       setSubmitting(false);
     }
@@ -280,6 +292,10 @@ function PendingRow({ row, onValidated, onDeleted }) {
           Log outcome
         </button>
       </div>
+
+      {submitError && (
+        <p className="mt-2 w-full text-xs text-risk-critical">{submitError}</p>
+      )}
     </form>
   );
 }

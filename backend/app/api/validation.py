@@ -14,7 +14,7 @@ POST /api/validation/manual-event   — create a standalone event purely for
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -83,6 +83,19 @@ class ActualOutcomeInput(BaseModel):
     actualIncidentCount: int | None = Field(default=None, ge=0)
     notes: str | None = None
 
+    # The frontend's number inputs for these two fields don't strictly
+    # forbid fractional values in every browser, and Pydantic v2 rejects
+    # e.g. 45.5 for an `int` field outright (a 422 with no useful message
+    # to the officer filling out the form). Round instead of rejecting —
+    # a risk score or delay in minutes loses nothing meaningful by being
+    # rounded to the nearest whole number.
+    @field_validator("actualDelayMinutes", "actualRiskScore", "actualCrowdSize", "actualIncidentCount", mode="before")
+    @classmethod
+    def _round_fractional(cls, v):
+        if isinstance(v, float):
+            return round(v)
+        return v
+
 
 class ActualOutcomeResponse(BaseModel):
     id: str
@@ -110,6 +123,13 @@ class ManualEventInput(BaseModel):
     actualResourceUsage: str | None = None
     actualIncidentCount: int | None = None
     notes: str | None = None
+
+    @field_validator("actualDelayMinutes", "actualCrowdSize", "actualIncidentCount", mode="before")
+    @classmethod
+    def _round_fractional(cls, v):
+        if isinstance(v, float):
+            return round(v)
+        return v
 
 
 # ---------------------------------------------------------------------------
@@ -173,6 +193,85 @@ async def get_validation_history(db: AsyncSession = Depends(get_db)):
         history.append(item)
 
     return history
+
+
+# NOTE: this route MUST be declared before POST /validation/{event_id}.
+# FastAPI/Starlette match routes in registration order, and "manual-event"
+# is itself a valid value for the {event_id} path parameter below — so if
+# that route were declared first, every request here would be silently
+# swallowed by submit_actual_outcome() and 422 against ActualOutcomeInput
+# instead of reaching this handler. (This is exactly what was happening
+# before this reorder — the "+ Add Event for Validation" flow never worked.)
+@router.post("/validation/manual-event", response_model=ActualOutcomeResponse)
+async def create_manual_validation_event(
+    payload: ManualEventInput,
+    db: AsyncSession = Depends(get_db),
+):
+    """Create a standalone, already-completed event together with its actual
+    outcome — used by the "+ Add Event for Validation" empty-state action,
+    for events that never went through the live forecast dashboard.
+    """
+    try:
+        event_dt = datetime.fromisoformat(payload.eventDateTime.replace("Z", "+00:00")).replace(tzinfo=None)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="eventDateTime must be a valid ISO datetime string")
+
+    risk_level_key = payload.actualRiskLevel.strip().lower()
+    actual_score = RISK_LEVEL_SCORE.get(risk_level_key)
+    if actual_score is None:
+        raise HTTPException(status_code=400, detail="actualRiskLevel must be one of: low, moderate, high, critical")
+
+    event = Event(
+        name=payload.eventName,
+        event_type=payload.eventType,
+        is_planned=True,
+        latitude=payload.latitude,
+        longitude=payload.longitude,
+        location_name=payload.locationName,
+        crowd_size=payload.actualCrowdSize or 0,
+        start_time=event_dt,
+        duration_hours=1.0,
+        status="completed",
+    )
+    db.add(event)
+    await db.flush()
+
+    # No model prediction exists for a manually-logged event, so the
+    # comparison baseline defaults to a neutral midpoint prediction. The
+    # accuracy figure reflects "no forecast was made" rather than a real
+    # model score.
+    predicted_score = 50
+    predicted_delay = 30
+    accuracy = _compute_accuracy(predicted_score, actual_score, predicted_delay, payload.actualDelayMinutes)
+
+    validation = Validation(
+        event_id=event.id,
+        actual_congestion_score=actual_score,
+        actual_risk_level=risk_level_key,
+        actual_delay_minutes=payload.actualDelayMinutes,
+        actual_crowd_size=payload.actualCrowdSize,
+        actual_resource_usage=payload.actualResourceUsage,
+        actual_incident_count=payload.actualIncidentCount,
+        notes=payload.notes,
+        accuracy_percentage=accuracy,
+        score_delta=round(predicted_score - actual_score, 1),
+        validated=True,
+    )
+    db.add(validation)
+    await db.commit()
+
+    return ActualOutcomeResponse(
+        id=event.id,
+        validated=True,
+        accuracyPercent=accuracy,
+        actualRiskScore=round(actual_score),
+        actualRiskLevel=risk_level_key,
+        actualDelayMinutes=payload.actualDelayMinutes,
+        actualCrowdSize=payload.actualCrowdSize,
+        actualResourceUsage=payload.actualResourceUsage,
+        actualIncidentCount=payload.actualIncidentCount,
+        notes=payload.notes,
+    )
 
 
 @router.post("/validation/{event_id}", response_model=ActualOutcomeResponse)
@@ -243,76 +342,4 @@ async def submit_actual_outcome(
         actualResourceUsage=actuals.actualResourceUsage,
         actualIncidentCount=actuals.actualIncidentCount,
         notes=actuals.notes,
-    )
-
-
-@router.post("/validation/manual-event", response_model=ActualOutcomeResponse)
-async def create_manual_validation_event(
-    payload: ManualEventInput,
-    db: AsyncSession = Depends(get_db),
-):
-    """Create a standalone, already-completed event together with its actual
-    outcome — used by the "+ Add Event for Validation" empty-state action,
-    for events that never went through the live forecast dashboard.
-    """
-    try:
-        event_dt = datetime.fromisoformat(payload.eventDateTime.replace("Z", "+00:00")).replace(tzinfo=None)
-    except ValueError:
-        raise HTTPException(status_code=400, detail="eventDateTime must be a valid ISO datetime string")
-
-    risk_level_key = payload.actualRiskLevel.strip().lower()
-    actual_score = RISK_LEVEL_SCORE.get(risk_level_key)
-    if actual_score is None:
-        raise HTTPException(status_code=400, detail="actualRiskLevel must be one of: low, moderate, high, critical")
-
-    event = Event(
-        name=payload.eventName,
-        event_type=payload.eventType,
-        is_planned=True,
-        latitude=payload.latitude,
-        longitude=payload.longitude,
-        location_name=payload.locationName,
-        crowd_size=payload.actualCrowdSize or 0,
-        start_time=event_dt,
-        duration_hours=1.0,
-        status="completed",
-    )
-    db.add(event)
-    await db.flush()
-
-    # No model prediction exists for a manually-logged event, so the
-    # comparison baseline defaults to a neutral midpoint prediction. The
-    # accuracy figure reflects "no forecast was made" rather than a real
-    # model score.
-    predicted_score = 50
-    predicted_delay = 30
-    accuracy = _compute_accuracy(predicted_score, actual_score, predicted_delay, payload.actualDelayMinutes)
-
-    validation = Validation(
-        event_id=event.id,
-        actual_congestion_score=actual_score,
-        actual_risk_level=risk_level_key,
-        actual_delay_minutes=payload.actualDelayMinutes,
-        actual_crowd_size=payload.actualCrowdSize,
-        actual_resource_usage=payload.actualResourceUsage,
-        actual_incident_count=payload.actualIncidentCount,
-        notes=payload.notes,
-        accuracy_percentage=accuracy,
-        score_delta=round(predicted_score - actual_score, 1),
-        validated=True,
-    )
-    db.add(validation)
-    await db.commit()
-
-    return ActualOutcomeResponse(
-        id=event.id,
-        validated=True,
-        accuracyPercent=accuracy,
-        actualRiskScore=round(actual_score),
-        actualRiskLevel=risk_level_key,
-        actualDelayMinutes=payload.actualDelayMinutes,
-        actualCrowdSize=payload.actualCrowdSize,
-        actualResourceUsage=payload.actualResourceUsage,
-        actualIncidentCount=payload.actualIncidentCount,
-        notes=payload.notes,
     )

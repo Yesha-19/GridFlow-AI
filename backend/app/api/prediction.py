@@ -11,7 +11,7 @@ import random
 from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -30,9 +30,26 @@ class EventInput(BaseModel):
     venueName: str
     latitude: float
     longitude: float
-    expectedAttendance: int = Field(ge=30)
+    # Doubles as "expected crowd size" for planned events and "estimated
+    # crowd impact" for unplanned incidents (accidents, breakdowns, etc.),
+    # which legitimately can be 0. Previously hard-floored at >=100, which
+    # rejected every unplanned-event submission from EventForm.jsx (its
+    # "Estimated Crowd Impact" field allows down to 0) and many low-turnout
+    # planned events (its own minimum is only 20). The floor here must never
+    # exceed the lowest minimum exposed in either form path.
+    expectedAttendance: int = Field(ge=0)
     startTime: str  # ISO 8601
     durationHours: float = Field(gt=0)
+
+    # EventForm.jsx's "Expected Attendance" / "Estimated Crowd Impact"
+    # input uses step="any", so it accepts decimal entry (e.g. 1500.5).
+    # Round rather than hard-rejecting with a 422.
+    @field_validator("expectedAttendance", mode="before")
+    @classmethod
+    def _round_fractional(cls, v):
+        if isinstance(v, float):
+            return round(v)
+        return v
 
 
 class DeploymentZone(BaseModel):

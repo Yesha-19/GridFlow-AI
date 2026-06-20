@@ -164,8 +164,12 @@ export default function EventForm({ onSubmit, status }) {
       venueName: location.name || formData.venueName,
       latitude: location.lat,
       longitude: location.lng,
-      expectedAttendance: Math.max(30, Math.round(Number(formData.expectedAttendance) || 30)),
-      durationHours: Math.max(0.5, Number(formData.durationHours) || 0.5),
+      // expectedAttendance is an integer field on the backend
+      // (EventInput.expectedAttendance: int), but the field below uses
+      // step="any" for easier typing — round here so a value like 1500.5
+      // doesn't get rejected with a 422.
+      expectedAttendance: Math.round(Number(formData.expectedAttendance)),
+      durationHours: Number(formData.durationHours),
       startTime: formData.startTime
         ? new Date(formData.startTime).toISOString()
         : new Date().toISOString(),
@@ -248,8 +252,9 @@ export default function EventForm({ onSubmit, status }) {
             </span>
             <input
               type="number"
-              required
-              min="30"
+              required={formData.isPlanned}
+              min={formData.isPlanned ? '20' : '0'}
+              step="any"
               className="input"
               value={formData.expectedAttendance}
               onChange={(e) => setFormData({ ...formData, expectedAttendance: e.target.value })}
