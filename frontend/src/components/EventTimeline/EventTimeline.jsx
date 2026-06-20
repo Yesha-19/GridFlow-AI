@@ -52,12 +52,12 @@ export default function EventTimeline({ event, prediction }) {
       await resolveEvent(event.id);
       setIsResolved(true);
       if (markEventResolved) markEventResolved();
-      
+
       // Auto-redirect to validation page after showing success state
       setTimeout(() => {
         navigate('/validation');
       }, 1500);
-      
+
     } catch (err) {
       console.error('Failed to resolve event', err);
       setResolveError("Failed to resolve: Event ID missing or not found. Please click 'Reset' and run a new forecast.");
@@ -124,8 +124,8 @@ export default function EventTimeline({ event, prediction }) {
           {isResolved
             ? 'Event resolved'
             : countdown.isPast
-            ? 'Event in progress'
-            : `T-minus ${countdown.label}`}
+              ? 'Event in progress'
+              : `T-minus ${countdown.label}`}
         </span>
       </div>
 
@@ -147,15 +147,14 @@ export default function EventTimeline({ event, prediction }) {
               <div key={phase.key} className="relative flex items-start gap-3 pl-0">
                 {/* Timeline dot */}
                 <div
-                  className={`relative z-10 flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-full border-2 transition-all duration-500 ${
-                    isActive
-                      ? showDelayBadge
-                        ? 'text-risk-moderate border-risk-moderate bg-console-bg shadow-glow'
-                        : `${phase.color} border-current bg-console-bg shadow-glow`
-                      : isPast
+                  className={`relative z-10 flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-full border-2 transition-all duration-500 ${isActive
+                    ? showDelayBadge
+                      ? 'text-risk-moderate border-risk-moderate bg-console-bg shadow-glow'
+                      : `${phase.color} border-current bg-console-bg shadow-glow`
+                    : isPast
                       ? 'border-risk-low/50 bg-risk-low/10 text-risk-low'
                       : 'border-console-border bg-console-raised text-console-muted'
-                  }`}
+                    }`}
                 >
                   {isPast ? (
                     <CheckCircle2 size={14} />
@@ -170,9 +169,8 @@ export default function EventTimeline({ event, prediction }) {
                 <div className={`flex-1 pb-1 ${isFuture ? 'opacity-50' : ''}`}>
                   <div className="flex items-center gap-2">
                     <span
-                      className={`text-sm font-medium ${
-                        isActive ? 'text-console-text' : 'text-console-muted'
-                      }`}
+                      className={`text-sm font-medium ${isActive ? 'text-console-text' : 'text-console-muted'
+                        }`}
                     >
                       {phase.label}
                     </span>
@@ -198,8 +196,8 @@ export default function EventTimeline({ event, prediction }) {
         </div>
       </div>
 
-      {/* Manual Resolution Control — only visible when event has started */}
-      {countdown.isPast && (
+      {/* Manual Resolution Control — visible from Peak Congestion onwards */}
+      {countdown.isPast && currentPhaseIdx >= 2 && (
         <div className="mt-5 border-t border-console-border pt-4">
           {isResolved ? (
             <div className="flex items-center gap-2 rounded-lg bg-risk-low/10 border border-risk-low/30 px-4 py-2.5">
@@ -212,20 +210,32 @@ export default function EventTimeline({ event, prediction }) {
               </span>
             </div>
           ) : (
-            <div className="mt-6 flex flex-col gap-2">
-        {resolveError && (
-          <div className="text-risk-critical text-xs font-medium rounded-lg bg-risk-critical/10 p-2 border border-risk-critical/20">
-            {resolveError}
-          </div>
-        )}
-        <button
-          onClick={handleResolve}
-              disabled={isResolving}
-              className="flex w-full items-center justify-center gap-2 rounded-lg border border-risk-low/40 bg-risk-low/10 px-4 py-2.5 text-sm font-semibold text-risk-low transition-all hover:bg-risk-low/20 hover:border-risk-low/60 hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isResolving ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}
-              {isResolving ? 'Resolving...' : 'Mark as Resolved'}
-            </button>
+            <div className="flex flex-col gap-2">
+              {resolveError && (
+                <div className="text-risk-critical text-xs font-medium rounded-lg bg-risk-critical/10 p-2 border border-risk-critical/20">
+                  {resolveError}
+                </div>
+              )}
+              {currentPhaseIdx === 2 && (
+                <div className="flex items-center gap-1.5 rounded-lg bg-risk-moderate/10 border border-risk-moderate/30 px-3 py-2">
+                  <AlertTriangle size={13} className="text-risk-moderate shrink-0" />
+                  <span className="text-[11px] text-risk-moderate">
+                    Event still at Peak Congestion — resolve early only if crowds have actually dispersed.
+                  </span>
+                </div>
+              )}
+              <button
+                onClick={handleResolve}
+                disabled={isResolving}
+                className={`flex w-full items-center justify-center gap-2 rounded-lg border px-4 py-2.5 text-sm font-semibold transition-all hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed ${
+                  currentPhaseIdx === 2
+                    ? 'border-risk-moderate/40 bg-risk-moderate/10 text-risk-moderate hover:bg-risk-moderate/20 hover:border-risk-moderate/60'
+                    : 'border-risk-low/40 bg-risk-low/10 text-risk-low hover:bg-risk-low/20 hover:border-risk-low/60'
+                }`}
+              >
+                {isResolving ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}
+                {isResolving ? 'Resolving...' : currentPhaseIdx === 2 ? 'Resolve Early' : 'Mark as Resolved'}
+              </button>
             </div>
           )}
         </div>
