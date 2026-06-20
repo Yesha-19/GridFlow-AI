@@ -164,8 +164,8 @@ export default function EventForm({ onSubmit, status }) {
       venueName: location.name || formData.venueName,
       latitude: location.lat,
       longitude: location.lng,
-      expectedAttendance: Math.max(30, Number(formData.expectedAttendance) || 30),
-      durationHours: Number(formData.durationHours),
+      expectedAttendance: Math.max(30, Math.round(Number(formData.expectedAttendance) || 30)),
+      durationHours: Math.max(0.5, Number(formData.durationHours) || 0.5),
       startTime: formData.startTime
         ? new Date(formData.startTime).toISOString()
         : new Date().toISOString(),
@@ -250,7 +250,6 @@ export default function EventForm({ onSubmit, status }) {
               type="number"
               required
               min="30"
-              step="any"
               className="input"
               value={formData.expectedAttendance}
               onChange={(e) => setFormData({ ...formData, expectedAttendance: e.target.value })}
