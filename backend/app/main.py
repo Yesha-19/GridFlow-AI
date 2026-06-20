@@ -49,15 +49,17 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# CORS — allow frontend dev server
+# ---------------------------------------------------------------------------
+# CORS Configuration - STRICTLY DEFINED
+# ---------------------------------------------------------------------------
+origins = [
+    "http://localhost:5173",
+    "https://grid-flow-five.vercel.app"
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-        "http://localhost:3000",
-        "http://127.0.0.1:5173",
-        "*",  # Allow all for demo
-    ],
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -84,5 +86,3 @@ async def root():
 @app.get("/api/health")
 async def health():
     return {"status": "healthy", "service": "gridlock-backend"}
-
-
