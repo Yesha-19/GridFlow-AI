@@ -66,3 +66,27 @@ async def get_event(event_id: str, db: AsyncSession = Depends(get_db)):
         latitude=event.latitude,
         longitude=event.longitude,
     )
+
+@router.put("/events/{event_id}/resolve")
+async def resolve_event(event_id: str, db: AsyncSession = Depends(get_db)):
+    """Mark an event as completed so it moves to validation."""
+    result = await db.execute(select(Event).where(Event.id == event_id))
+    event = result.scalar_one_or_none()
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+    
+    event.status = "completed"
+    await db.commit()
+    return {"status": "success", "event_id": event.id}
+
+@router.delete("/events/{event_id}")
+async def delete_event(event_id: str, db: AsyncSession = Depends(get_db)):
+    """Delete an event (and cascade to predictions/validations)."""
+    result = await db.execute(select(Event).where(Event.id == event_id))
+    event = result.scalar_one_or_none()
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+    
+    await db.delete(event)
+    await db.commit()
+    return {"status": "success", "event_id": event.id}

@@ -78,7 +78,7 @@ class ValidationHistoryItem(BaseModel):
 class ActualOutcomeInput(BaseModel):
     actualCrowdSize: int | None = None
     actualDelayMinutes: int = Field(..., ge=0)
-    actualRiskLevel: str = Field(..., description="low | moderate | high | critical")
+    actualRiskScore: int = Field(..., ge=0, le=100)
     actualResourceUsage: str | None = None
     actualIncidentCount: int | None = Field(default=None, ge=0)
     notes: str | None = None
@@ -141,7 +141,7 @@ async def get_validation_history(db: AsyncSession = Depends(get_db)):
         select(Event, Prediction, Validation)
         .join(Prediction, Prediction.event_id == Event.id)
         .outerjoin(Validation, Validation.event_id == Event.id)
-        .order_by(Event.start_time.desc())
+        .order_by(Event.created_at.desc())
         .limit(50)
     )
     rows = result.all()
@@ -207,10 +207,8 @@ async def submit_actual_outcome(
     predicted_score = prediction.congestion_risk_score if prediction else 50
     predicted_delay = prediction.estimated_delay_minutes if prediction else 30
 
-    risk_level_key = actuals.actualRiskLevel.strip().lower()
-    actual_score = RISK_LEVEL_SCORE.get(risk_level_key)
-    if actual_score is None:
-        raise HTTPException(status_code=400, detail="actualRiskLevel must be one of: low, moderate, high, critical")
+    actual_score = actuals.actualRiskScore
+    risk_level_key = score_to_risk_level(actual_score)
 
     accuracy = _compute_accuracy(predicted_score, actual_score, predicted_delay, actuals.actualDelayMinutes)
     score_delta = round(predicted_score - actual_score, 1)

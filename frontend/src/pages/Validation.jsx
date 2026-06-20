@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { CheckCircle2, ClipboardList, Loader2, Brain } from 'lucide-react';
+import { CheckCircle2, ClipboardList, Loader2, Brain, Trash } from 'lucide-react';
 import { getValidationHistory, submitActualOutcome } from '../services/validationApi';
+import { deleteEvent } from '../services/eventsApi';
 import { UNPLANNED_EVENT_TYPES, PLANNED_EVENT_TYPES } from '../utils/constants';
 import { formatDateTime, formatMinutes, getRiskBand } from '../utils/riskUtils';
 import LearningLoop from '../components/LearningLoop/LearningLoop.jsx';
@@ -33,6 +34,10 @@ export default function Validation() {
 
   function handleValidated(updatedRow) {
     setHistory((prev) => prev.map((r) => (r.id === updatedRow.id ? updatedRow : r)));
+  }
+
+  function handleDeleted(deletedId) {
+    setHistory((prev) => prev.filter((r) => r.id !== deletedId));
   }
 
   return (
@@ -87,11 +92,11 @@ export default function Validation() {
         <div className="min-w-0">
           {history && (
             <div className="space-y-3">
-              {history.map((row) =>
+              {history.filter(row => row.eventOccurred).map((row) =>
                 row.validated ? (
-                  <ValidatedRow key={row.id} row={row} />
+                  <ValidatedRow key={row.id} row={row} onDeleted={handleDeleted} />
                 ) : (
-                  <PendingRow key={row.id} row={row} onValidated={handleValidated} />
+                  <PendingRow key={row.id} row={row} onValidated={handleValidated} onDeleted={handleDeleted} />
                 )
               )}
             </div>
@@ -134,8 +139,14 @@ function BarRow({ label, value, unit, color }) {
   );
 }
 
-function ValidatedRow({ row }) {
-  const band = getRiskBand(row.actualRiskScore);
+function ValidatedRow({ row, onDeleted }) {
+  const band = row.actualRiskScore != null ? getRiskBand(row.actualRiskScore) : getRiskBand(row.predictedRiskScore);
+  
+  const handleDelete = () => {
+    if (onDeleted) onDeleted(row.id);
+    deleteEvent(row.id).catch(console.error);
+  };
+
   return (
     <div className="rounded-xl border border-console-border bg-console-panel/80 p-4 flex flex-col xl:flex-row xl:items-center justify-between gap-4 xl:gap-6 flex-wrap">
       
@@ -148,12 +159,12 @@ function ValidatedRow({ row }) {
         </p>
       </div>
 
-      <div className="flex flex-col sm:flex-row flex-1 gap-6 w-full min-w-0">
-        <div className="flex-1 min-w-0">
+      <div className="flex flex-col sm:flex-row flex-1 gap-6 w-full min-w-[280px]">
+        <div className="flex-1 min-w-[120px]">
           <p className="text-[10px] text-console-muted mb-2 uppercase tracking-wider">Risk Score</p>
           <ComparisonBar predicted={row.predictedRiskScore} actual={row.actualRiskScore} unit="" />
         </div>
-        <div className="flex-1 min-w-0">
+        <div className="flex-1 min-w-[120px]">
           <p className="text-[10px] text-console-muted mb-2 uppercase tracking-wider">Time Delay</p>
           <ComparisonBar
             predicted={row.predictedDelayMinutes}
@@ -163,22 +174,34 @@ function ValidatedRow({ row }) {
         </div>
       </div>
 
-      <div className="shrink-0 flex items-center xl:justify-end w-full xl:w-auto mt-2 xl:mt-0">
-        <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${band.softBgClass} ${band.textClass}`}>
+      <div className="shrink-0 flex items-center justify-between w-full xl:w-auto xl:justify-end mt-4 xl:mt-0 gap-4">
+        <span className={`rounded-full px-2.5 py-1 text-xs font-semibold whitespace-nowrap ${band.softBgClass} ${band.textClass}`}>
           {row.accuracyPercent}% accurate
         </span>
+        <button 
+          onClick={handleDelete} 
+          className="text-console-muted hover:text-risk-critical transition-colors shrink-0 p-1"
+          title="Remove event"
+        >
+          <Trash size={16} />
+        </button>
       </div>
       
     </div>
   );
 }
 
-function PendingRow({ row, onValidated }) {
+function PendingRow({ row, onValidated, onDeleted }) {
   const [actualRiskScore, setActualRiskScore] = useState('');
   const [actualDelayMinutes, setActualDelayMinutes] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   const canSubmit = actualRiskScore !== '' && actualDelayMinutes !== '' && !submitting;
+
+  const handleDelete = () => {
+    if (onDeleted) onDeleted(row.id);
+    deleteEvent(row.id).catch(console.error);
+  };
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -206,11 +229,22 @@ function PendingRow({ row, onValidated }) {
       onSubmit={handleSubmit}
       className="rounded-xl border border-dashed border-console-border bg-console-panel/50 p-4 sm:flex sm:items-end sm:gap-4 flex-wrap"
     >
-      <div className="sm:w-56">
-        <p className="font-display text-sm font-semibold text-console-text truncate">{row.eventName}</p>
-        <p className="mt-0.5 text-xs text-console-muted">
-          Predicted {row.predictedRiskScore} risk · {formatMinutes(row.predictedDelayMinutes)} delay
-        </p>
+      <div className="sm:w-56 flex justify-between items-start gap-2">
+        <div className="min-w-0">
+          <p className="font-display text-sm font-semibold text-console-text truncate">{row.eventName}</p>
+          <p className="mt-0.5 text-xs text-console-muted truncate">
+            Predicted {row.predictedRiskScore} risk · {formatMinutes(row.predictedDelayMinutes)} delay
+          </p>
+        </div>
+        <button 
+          type="button"
+          onClick={handleDelete} 
+          disabled={submitting}
+          className="text-console-muted hover:text-risk-critical transition-colors shrink-0 mt-0.5 p-1"
+          title="Remove event"
+        >
+          <Trash size={16} />
+        </button>
       </div>
 
       <div className="mt-3 flex flex-1 flex-wrap items-end gap-3 sm:mt-0 min-w-0">

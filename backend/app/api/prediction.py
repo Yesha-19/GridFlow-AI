@@ -73,6 +73,7 @@ class HistoricalEvent(BaseModel):
 
 
 class ForecastResponse(BaseModel):
+    eventId: str
     prediction: PredictionResponse
     resources: ResourceResponse
     historicalComparison: list[HistoricalEvent] = []
@@ -86,8 +87,9 @@ async def predict_congestion(
     """Run the full forecast pipeline for an upcoming event."""
 
     # Parse start time
+    from datetime import timezone
     try:
-        start_time = datetime.fromisoformat(event.startTime.replace("Z", "+00:00"))
+        start_time = datetime.fromisoformat(event.startTime.replace("Z", "+00:00")).astimezone(timezone.utc).replace(tzinfo=None)
     except ValueError:
         start_time = datetime.utcnow() + timedelta(hours=6)
 
@@ -163,6 +165,7 @@ async def predict_congestion(
 
     # Build response
     return ForecastResponse(
+        eventId=db_event.id,
         prediction=PredictionResponse(
             congestionRiskScore=round(prediction_result["congestion_score"]),
             estimatedDelayMinutes=prediction_result["estimated_delay_minutes"],

@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
-import { Clock, Zap, Wind, CheckCircle2, AlertTriangle } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Clock, Zap, Wind, CheckCircle2, AlertTriangle, Loader2 } from 'lucide-react';
 import { useCountdown } from '../../hooks/useCountdown';
+import { resolveEvent } from '../../services/eventsApi';
 
 const PHASES = [
   { key: 'setup', label: 'Setup & Staging', icon: Clock, offset: -60, color: 'text-signal' },
@@ -29,9 +31,39 @@ function formatDelay(delayMinutes) {
  * If estimated time is exceeded, the event is marked as DELAYED.
  * Only manual "Mark as Resolved" advances to the final state.
  */
+import { useEventContext } from '../../context/EventContext';
+
 export default function EventTimeline({ event, prediction }) {
   const countdown = useCountdown(event?.startTime);
-  const [isResolved, setIsResolved] = useState(false);
+  const [isResolved, setIsResolved] = useState(event?.status === 'completed');
+  const [isResolving, setIsResolving] = useState(false);
+  const [resolveError, setResolveError] = useState(null);
+  const navigate = useNavigate();
+  const { markEventResolved } = useEventContext();
+
+  React.useEffect(() => {
+    setIsResolved(event?.status === 'completed');
+  }, [event]);
+
+  const handleResolve = async () => {
+    setResolveError(null);
+    try {
+      setIsResolving(true);
+      await resolveEvent(event.id);
+      setIsResolved(true);
+      if (markEventResolved) markEventResolved();
+      
+      // Auto-redirect to validation page after showing success state
+      setTimeout(() => {
+        navigate('/validation');
+      }, 1500);
+      
+    } catch (err) {
+      console.error('Failed to resolve event', err);
+      setResolveError("Failed to resolve: Event ID missing or not found. Please click 'Reset' and run a new forecast.");
+      setIsResolving(false);
+    }
+  };
 
   if (!event || !prediction) return null;
 
@@ -180,13 +212,21 @@ export default function EventTimeline({ event, prediction }) {
               </span>
             </div>
           ) : (
-            <button
-              onClick={() => setIsResolved(true)}
-              className="flex w-full items-center justify-center gap-2 rounded-lg border border-risk-low/40 bg-risk-low/10 px-4 py-2.5 text-sm font-semibold text-risk-low transition-all hover:bg-risk-low/20 hover:border-risk-low/60 hover:shadow-md active:scale-[0.98]"
+            <div className="mt-6 flex flex-col gap-2">
+        {resolveError && (
+          <div className="text-risk-critical text-xs font-medium rounded-lg bg-risk-critical/10 p-2 border border-risk-critical/20">
+            {resolveError}
+          </div>
+        )}
+        <button
+          onClick={handleResolve}
+              disabled={isResolving}
+              className="flex w-full items-center justify-center gap-2 rounded-lg border border-risk-low/40 bg-risk-low/10 px-4 py-2.5 text-sm font-semibold text-risk-low transition-all hover:bg-risk-low/20 hover:border-risk-low/60 hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <CheckCircle2 size={16} />
-              Mark as Resolved
+              {isResolving ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}
+              {isResolving ? 'Resolving...' : 'Mark as Resolved'}
             </button>
+            </div>
           )}
         </div>
       )}

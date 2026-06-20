@@ -42,10 +42,12 @@ export function EventProvider({ children }) {
       setStatus('loading');
       setError(null);
       try {
-        const { prediction: pred, resources: res, historicalComparison: hist } = await getForecast(eventPayload);
+        const { eventId, prediction: pred, resources: res, historicalComparison: hist } = await getForecast(eventPayload);
         const routingPlan = await getRoutingPlan(eventPayload, pred);
 
-        setCurrentEvent(eventPayload);
+        const savedEvent = { ...eventPayload, id: eventId };
+
+        setCurrentEvent(savedEvent);
         setPrediction(pred);
         setResources(res);
         setRouting(routingPlan);
@@ -53,7 +55,7 @@ export function EventProvider({ children }) {
         setStatus('ready');
 
         persist({
-          currentEvent: eventPayload,
+          currentEvent: savedEvent,
           prediction: pred,
           resources: res,
           routing: routingPlan,
@@ -88,7 +90,7 @@ export function EventProvider({ children }) {
             }
             setRouting(snappedRouting);
             persist({
-              currentEvent: eventPayload,
+              currentEvent: savedEvent,
               prediction: pred,
               resources: res,
               routing: snappedRouting,
@@ -128,6 +130,23 @@ export function EventProvider({ children }) {
     }
   }, []);
 
+  const markEventResolved = useCallback(() => {
+    setCurrentEvent((prev) => {
+      if (!prev) return prev;
+      const updated = { ...prev, status: 'completed' };
+      try {
+        sessionStorage.setItem(STORAGE_KEY, JSON.stringify({
+          currentEvent: updated,
+          prediction,
+          resources,
+          routing,
+          historicalComparison,
+        }));
+      } catch {}
+      return updated;
+    });
+  }, [prediction, resources, routing, historicalComparison]);
+
   const value = useMemo(
     () => ({
       currentEvent,
@@ -142,6 +161,7 @@ export function EventProvider({ children }) {
       setWeatherData,
       runForecast,
       reset,
+      markEventResolved,
       hasForecast: Boolean(currentEvent && prediction),
     }),
     [
@@ -156,6 +176,7 @@ export function EventProvider({ children }) {
       weatherData,
       runForecast,
       reset,
+      markEventResolved,
     ]
   );
 
