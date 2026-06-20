@@ -249,8 +249,8 @@ export default function EventForm({ onSubmit, status }) {
             <input
               type="number"
               required={formData.isPlanned}
-              min={formData.isPlanned ? '100' : '0'}
-              step="100"
+              min={formData.isPlanned ? '20' : '0'}
+              step="any"
               className="input"
               value={formData.expectedAttendance}
               onChange={(e) => setFormData({ ...formData, expectedAttendance: e.target.value })}
@@ -291,7 +291,7 @@ export default function EventForm({ onSubmit, status }) {
               type="number"
               required
               min="0.5"
-              step="0.5"
+              step="any"
               className="input"
               value={formData.durationHours}
               onChange={(e) => setFormData({ ...formData, durationHours: e.target.value })}
