@@ -180,6 +180,10 @@ class Validation(TimestampMixin, Base):
     actual_delay_minutes = Column(Integer, nullable=True)
     actual_peak_time = Column(DateTime, nullable=True)
     actual_duration_minutes = Column(Integer, nullable=True)
+    actual_crowd_size = Column(Integer, nullable=True)
+    actual_risk_level = Column(String(20), nullable=True)
+    actual_resource_usage = Column(Text, nullable=True)
+    actual_incident_count = Column(Integer, nullable=True)
 
     # Derived accuracy metrics
     accuracy_percentage = Column(Float, nullable=True)

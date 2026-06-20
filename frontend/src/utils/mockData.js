@@ -253,19 +253,39 @@ export function generateMockValidationHistory() {
       100 - (Math.abs(drift) / 100) * 100 * 0.6 - rng() * 4
     );
 
-    const isPending = i >= SAMPLE_PAST_EVENTS.length - 2;
+    // Last event in the sample set is treated as "in the future" so the UI
+    // can demo the Waiting for Event Completion state; the one before that
+    // has occurred but hasn't been validated yet.
+    const isFuture = i === SAMPLE_PAST_EVENTS.length - 1;
+    const isPending = isFuture || i === SAMPLE_PAST_EVENTS.length - 2;
+
+    const scoreToLevel = (score) => {
+      if (score >= 80) return 'critical';
+      if (score >= 60) return 'high';
+      if (score >= 35) return 'moderate';
+      return 'low';
+    };
 
     return {
       id: `hist-${i}`,
       eventName: evt.eventName,
       eventType: evt.eventType,
-      eventDate: new Date(Date.now() - (i + 1) * 9 * 24 * 3600 * 1000).toISOString(),
+      eventDate: isFuture
+        ? new Date(Date.now() + 3 * 24 * 3600 * 1000).toISOString()
+        : new Date(Date.now() - (i + 1) * 9 * 24 * 3600 * 1000).toISOString(),
       predictedRiskScore: prediction.congestionRiskScore,
+      predictedRiskLevel: scoreToLevel(prediction.congestionRiskScore),
       predictedDelayMinutes: prediction.estimatedDelayMinutes,
-      actualRiskScore: isPending ? null : actualRiskScore,
-      actualDelayMinutes: isPending ? null : actualDelayMinutes,
-      accuracyPercent: isPending ? null : Math.min(99, Math.max(58, accuracyPercent)),
+      eventOccurred: !isFuture,
       validated: !isPending,
+      actualRiskScore: isPending ? null : actualRiskScore,
+      actualRiskLevel: isPending ? null : scoreToLevel(actualRiskScore),
+      actualDelayMinutes: isPending ? null : actualDelayMinutes,
+      actualCrowdSize: isPending ? null : Math.round(800 + rng() * 4000),
+      actualResourceUsage: isPending ? null : `${4 + Math.round(rng() * 10)} officers, ${2 + Math.round(rng() * 6)} barricades`,
+      actualIncidentCount: isPending ? null : Math.round(rng() * 3),
+      notes: isPending ? null : '',
+      accuracyPercent: isPending ? null : Math.min(99, Math.max(58, accuracyPercent)),
     };
   });
 }
