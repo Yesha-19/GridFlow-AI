@@ -12,8 +12,9 @@ export default function RiskCard({ event, prediction }) {
   const { weatherData } = useEventContext();
   const [animatedOffset, setAnimatedOffset] = useState(CIRCUMFERENCE);
   
-  const baseScore = prediction?.congestionRiskScore ?? 0;
-  const { score: adjustedScore, multiplier } = getWeatherAdjustedRisk(baseScore, weatherData?.condition);
+  const baseScore = prediction?.baseRiskScore ?? prediction?.congestionRiskScore ?? 0;
+  const { multiplier } = getWeatherAdjustedRisk(baseScore, weatherData?.condition);
+  const adjustedScore = prediction?.congestionRiskScore ?? 0;
   const band = getRiskBand(adjustedScore);
   const countdown = useCountdown(event?.startTime);
 

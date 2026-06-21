@@ -2,6 +2,7 @@ import React, { createContext, useCallback, useContext, useMemo, useState } from
 import { getForecast } from '../services/predictionApi';
 import { getRoutingPlan } from '../services/routingApi';
 import { snapRouteToRoads } from '../services/osrmApi';
+import { fetchBengaluruWeather } from '../services/weatherApi';
 
 const EventContext = createContext(null);
 
@@ -42,7 +43,14 @@ export function EventProvider({ children }) {
       setStatus('loading');
       setError(null);
       try {
-        const { eventId, prediction: pred, resources: res, historicalComparison: hist } = await getForecast(eventPayload);
+        let weather = weatherData;
+        if (!weather) {
+          weather = await fetchBengaluruWeather();
+          setWeatherData(weather);
+        }
+
+        const payloadWithWeather = { ...eventPayload, weatherCondition: weather?.condition };
+        const { eventId, prediction: pred, resources: res, historicalComparison: hist } = await getForecast(payloadWithWeather);
         const routingPlan = await getRoutingPlan(eventPayload, pred);
 
         const savedEvent = { ...eventPayload, id: eventId };

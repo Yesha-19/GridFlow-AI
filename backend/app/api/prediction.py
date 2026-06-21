@@ -40,6 +40,7 @@ class EventInput(BaseModel):
     expectedAttendance: int = Field(ge=0)
     startTime: str  # ISO 8601
     durationHours: float = Field(gt=0)
+    weatherCondition: str | None = None
 
     # EventForm.jsx's "Expected Attendance" / "Estimated Crowd Impact"
     # input uses step="any", so it accepts decimal entry (e.g. 1500.5).
@@ -68,6 +69,7 @@ class PredictionResponse(BaseModel):
     confidenceScore: int
     peakOffsetMinutes: int
     riskLevel: str
+    baseRiskScore: int | None = None
 
 
 class ResourceResponse(BaseModel):
@@ -119,6 +121,31 @@ async def predict_congestion(
         start_time=start_time,
         duration_hours=event.durationHours,
     )
+
+    base_score = prediction_result["congestion_score"]
+    weather_multiplier = 0.0
+    if event.weatherCondition:
+        cond = event.weatherCondition.strip().lower()
+        multipliers = {
+            "clear": 0.0,
+            "clouds": 0.05,
+            "drizzle": 0.10,
+            "rain": 0.20,
+            "thunderstorm": 0.30
+        }
+        weather_multiplier = multipliers.get(cond, 0.0)
+    
+    adjusted_score = min(max(base_score * (1 + weather_multiplier), 4.0), 98.0)
+    prediction_result["congestion_score"] = adjusted_score
+
+    if adjusted_score >= 80:
+        prediction_result["risk_level"] = "CRITICAL"
+    elif adjusted_score >= 60:
+        prediction_result["risk_level"] = "HIGH"
+    elif adjusted_score >= 35:
+        prediction_result["risk_level"] = "MEDIUM"
+    else:
+        prediction_result["risk_level"] = "LOW"
 
     # Compute resource recommendations
     resource_result = compute_resource_plan(
@@ -190,6 +217,7 @@ async def predict_congestion(
             confidenceScore=round(prediction_result["confidence_score"]),
             peakOffsetMinutes=prediction_result["peak_offset_minutes"],
             riskLevel=prediction_result["risk_level"],
+            baseRiskScore=round(base_score),
         ),
         resources=ResourceResponse(
             policePersonnel=resource_result["policePersonnel"],

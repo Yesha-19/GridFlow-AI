@@ -79,10 +79,7 @@ export default function Dashboard({ event, prediction, resources, routing, histo
   const eventTypeLabel =
     [...PLANNED_EVENT_TYPES, ...UNPLANNED_EVENT_TYPES].find((t) => t.value === event.eventType)?.label ?? event.eventType;
 
-  const baseScore = prediction?.congestionRiskScore ?? 0;
-  const { score } = getWeatherAdjustedRisk(baseScore, weatherData?.condition);
-  const adjustedPrediction = prediction ? { ...prediction, congestionRiskScore: score } : null;
-
+  const score = prediction?.congestionRiskScore ?? 0;
   const band = getRiskBand(score);
   const readiness = getReadiness(score);
   const ReadinessIcon = readiness.icon;
@@ -199,12 +196,12 @@ export default function Dashboard({ event, prediction, resources, routing, histo
         <div className="flex flex-col gap-5">
           <RouteMap
             event={event}
-            prediction={adjustedPrediction}
+            prediction={prediction}
             resources={resources}
             routing={routing}
             onMapRef={handleMapRef}
           />
-          <AnalyticsPanel event={event} prediction={adjustedPrediction} />
+          <AnalyticsPanel event={event} prediction={prediction} />
         </div>
 
         <div className="flex flex-col gap-5">
