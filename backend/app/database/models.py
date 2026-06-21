@@ -34,7 +34,7 @@ def generate_id() -> str:
 
 class TimestampMixin:
     """Automatically managed created_at / updated_at columns."""
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
 
 
@@ -60,7 +60,7 @@ class Event(TimestampMixin, Base):
 
     # Crowd & timing
     crowd_size = Column(Integer, nullable=False)
-    start_time = Column(DateTime, nullable=False)
+    start_time = Column(DateTime, nullable=False, index=True)
     duration_hours = Column(Float, nullable=False)
 
     # Lifecycle
@@ -189,7 +189,7 @@ class Validation(TimestampMixin, Base):
     accuracy_percentage = Column(Float, nullable=True)
     score_delta = Column(Float, nullable=True)
     requires_review = Column(Boolean, default=False, nullable=False)
-    validated = Column(Boolean, default=False, nullable=False)
+    validated = Column(Boolean, default=False, nullable=False, index=True)
 
     # Notes
     notes = Column(Text, nullable=True)
