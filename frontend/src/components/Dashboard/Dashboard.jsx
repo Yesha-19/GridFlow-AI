@@ -7,7 +7,7 @@ import {
   Clock,
 } from 'lucide-react';
 import { PLANNED_EVENT_TYPES, UNPLANNED_EVENT_TYPES } from '../../utils/constants';
-import { formatDateTime, formatNumber, getRiskBand } from '../../utils/riskUtils';
+import { formatDateTime, formatNumber, getRiskBand, getWeatherAdjustedRisk } from '../../utils/riskUtils';
 import { generateBriefingPDF } from '../../utils/pdfGenerator';
 import RouteMap from '../RouteMap/RouteMap.jsx';
 import RiskCard from '../RiskCard/RiskCard.jsx';
@@ -73,11 +73,15 @@ export default function Dashboard({ event, prediction, resources, routing, histo
   const mapRefHolder = useRef(null);
   const [pdfStatus, setPdfStatus] = useState(PDF_IDLE);
   const now = useNow();
+  const { weatherData } = useEventContext();
 
   const eventTypeLabel =
     [...PLANNED_EVENT_TYPES, ...UNPLANNED_EVENT_TYPES].find((t) => t.value === event.eventType)?.label ?? event.eventType;
 
-  const score = prediction?.congestionRiskScore ?? 0;
+  const baseScore = prediction?.congestionRiskScore ?? 0;
+  const { score } = getWeatherAdjustedRisk(baseScore, weatherData?.condition);
+  const adjustedPrediction = prediction ? { ...prediction, congestionRiskScore: score } : null;
+
   const band = getRiskBand(score);
   const readiness = getReadiness(score);
   const ReadinessIcon = readiness.icon;
@@ -194,12 +198,12 @@ export default function Dashboard({ event, prediction, resources, routing, histo
         <div className="flex flex-col gap-5">
           <RouteMap
             event={event}
-            prediction={prediction}
+            prediction={adjustedPrediction}
             resources={resources}
             routing={routing}
             onMapRef={handleMapRef}
           />
-          <AnalyticsPanel event={event} prediction={prediction} />
+          <AnalyticsPanel event={event} prediction={adjustedPrediction} />
         </div>
 
         <div className="flex flex-col gap-5">
