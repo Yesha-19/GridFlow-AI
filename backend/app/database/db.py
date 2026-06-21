@@ -36,10 +36,12 @@ if DATABASE_URL.startswith("postgres://"):
 # ---------------------------------------------------------------------------
 # SQLAlchemy async engine
 # ---------------------------------------------------------------------------
+from sqlalchemy.pool import NullPool
 
 engine: AsyncEngine = create_async_engine(
     DATABASE_URL,
     echo=os.getenv("SQLALCHEMY_ECHO", "false").lower() == "true",
+    poolclass=NullPool,
 )
 
 # ---------------------------------------------------------------------------
